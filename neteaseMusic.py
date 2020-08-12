@@ -18,7 +18,7 @@ class NeteaseMusic():
             'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36',
             'Cookie': self.config.get('cred', 'cookie')
         }
-        self.baseUrl = 'https://ncm-api.herokuapp.com/'
+        self.baseUrl = self.config.get('cred', 'ncmApi')
         self.musicMetadata = {
             'query' : dict(
                 total = 0 ,
@@ -28,22 +28,31 @@ class NeteaseMusic():
         }
 
 
-    #1: 单曲, 10: 专辑, 100: 歌手, 1000: 歌单, 1002: 用户, 1004: MV, 1006: 歌词, 1009: 电台, 1014: 视频, 1018:综合
-    def search(self, keywords:str, limit=10, offset=0, type=0):
+    def search(self, keywords:str, limit=10, offset=0, type=1):
+        '''
+        Search for music base on keywords. Precise search if 'type' is supplied\n
+        Types: 1: 单曲, 10: 专辑, 100: 歌手, 1000: 歌单, 1002: 用户, 1004: MV, 1006: 歌词, 1009: 电台, 1014: 视频, 1018:综合
+
+        :Args:
+            - keywords `str`: search keyword
+            - limit `int`: limit for search results (default is 10)
+            - offset `int`: offset from the search results (default is 0)
+            - type `int` : type of search (deafult is 1 which for song)
+        :Returns:
+            - musicMetadata `dict`: metadata about the song (include artists, album, and length etc.)
+        '''
         params = {
             'keywords' : keywords,
             'limit' : limit,
             'offset' : offset,
-            'type' : 1,
+            'type' : type
         }
         resp = requests.get(
             '{}search'.format(self.baseUrl),
             headers=self.headers,
             params=params
         ).json()
-
-        # obtain data for songs
-        songs = resp['result']['songs']
+        songs = resp['result']['songs']     # obtain data for songs
 
         self.musicMetadata['query'].update(
             total = resp['result']['songCount'],
@@ -79,9 +88,15 @@ class NeteaseMusic():
         return self.musicMetadata
 
 
-    def get_song_info(self, id:int, bitrate=999000):
-        # - songInfo `dict`: detail data about the song (include downloadable link, size, and type etc.)
+    def get_song_data(self, id:int, bitrate=999000):
+        '''
+        Retrieve the metadata of the song file (id, url, bitrate, size, type, quality, and fee)
 
+        :Args: 
+            - id `int`: song id of the song
+        :Returns:
+            - songData `dict`: detail data of the song file
+        '''
         params = {
             'id' : id,
             'br' : bitrate
@@ -92,7 +107,7 @@ class NeteaseMusic():
             resp = requests.get(
                 '{}song/url'.format(self.baseUrl),
                 headers = self.headers,
-                params = params,
+                params = params
             ).json()
 
             # validate status code
@@ -128,31 +143,26 @@ class NeteaseMusic():
         if not url.isdigit():
             id = re.findall(r'\Wid=(\d+)', url)[0]
         musicMetadata = self.search(id)['info'][0]
-        songInfo = self.get_song_info(id)
 
-        # add the file name to song info for direct download
-        songInfo.update(filename=musicMetadata['filename'])
-        return musicMetadata, songInfo
+        return musicMetadata
 
 
-    def download(self, song:dict, bitrate=320000):
-        songInfo = song
-        # retrieve the download link if song does not have it
-        if 'url' not in song:
-            songInfo = self.get_song_info(song['songid'], bitrate=bitrate)
+    def download(self, song:dict, bitrate=999000):
+        # get the detail info of the song
+        songData = self.get_song_data(song['songid'], bitrate=bitrate)
         try:
+            print("{}.{} is downloading...".format(song['filename'], songData['type']))
             # get the binary data from the download link
-            data = requests.get(songInfo['url'], headers = self.headers).content
+            data = requests.get(songData['url'], headers = self.headers).content
 
             # create a new directory if haven't done so
             fileDir = 'songs/'
             if not os.path.exists(fileDir):
                 os.mkdir(fileDir)
 
-            print("{}.{} is downloading...".format(song['filename'], songInfo['type']))
-            with open('%s%s.%s' % (fileDir, song['filename'], songInfo['type']), 'wb') as f:
+            with open('%s%s.%s' % (fileDir, song['filename'], songData['type']), 'wb') as f:
                 f.write(data)
-            print("{}.{} download completed!".format(song['filename'], songInfo['type']))
+            print("{}.{} {} download completed!".format(song['filename'], songData['type'], songData['size']))
 
             return song['filename']
         except Exception as e:
@@ -193,21 +203,25 @@ class NeteaseMusic():
 if __name__ == "__main__":
     nm = NeteaseMusic()
 
-    # ## testing search
-    # results = nm.search('every time i close my eyes', limit = 10)
-    # nm.display()
-    # selection = int(input('Select # of the song to download: '))
-    # song = results['info'][selection-1]
-    # pprint(song)
+    # testing search
+    keywords =  input("Search: ")
+    results = nm.search(keywords, type= 1, limit = 10)
+    nm.display()
+    selection = int(input('Select # of the song to download: '))
+    song = results['info'][selection-1]
+    pprint(song)
+    # nm.download(song)
 
 
     ## testing download 1450574147  21224431  318143 1308010773
     # pprint(nm.get_song_info(2990399))
 
-    ## testing login functions
+    # # testing login functions
     # nm.login()
 
-    ## testing search by url
-    data = nm.search_by_url("34916664")
-    print(type(data))
-    nm.download(data[1], bitrate=320000)
+    # # testing search by url
+    # data = nm.search_by_url("http://music.163.com/song?id=26470629&userid=315274012")
+    # print(type(data))
+    # pprint(data)
+
+    # nm.download(data)
