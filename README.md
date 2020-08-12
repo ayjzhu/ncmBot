@@ -2,7 +2,7 @@
 A Discord music bot that plays music on demand via NetEase Cloud Music
 
 ## Key Features
-- Listen and share music toegether in a group
+- Listen and share music together in a group
 - Login and connect with personal NetEase Music account
     - Retrieve user information
     - Fetch user's playlists and import it to the playing queue
@@ -30,13 +30,13 @@ A Discord music bot that plays music on demand via NetEase Cloud Music
   - [x] Song/artist name
   - [x] Song url
   - [ ] Playlist url
-  - [ ] Precise type searching
+  - [x] Precise type searching
   - [ ] Keyword recommendations
 - Unique features
-    - [ ] User login
+    - [x] User login
     - [ ] Display popular comments
     - [ ] Display lyric
-    - [ ] Fetch user infomation
+    - [x] Fetch user infomation
     - [ ] Fetch user's playlists
     - [ ] Interative voting of current song
 
