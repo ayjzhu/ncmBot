@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 import datetime
 from prettytable import PrettyTable
@@ -18,7 +19,7 @@ class NeteaseMusic():
             'Cookie': self.config.get('cred', 'cookie')
         }
         self.baseUrl = 'https://ncm-api.herokuapp.com/'
-        self.musicData = {
+        self.musicMetadata = {
             'query' : dict(
                 total = 0 ,
                 numDisplayed = 0
@@ -44,7 +45,7 @@ class NeteaseMusic():
         # obtain data for songs
         songs = resp['result']['songs']
 
-        self.musicData['query'].update(
+        self.musicMetadata['query'].update(
             total = resp['result']['songCount'],
             numDisplayed = len(songs)
         )
@@ -73,12 +74,14 @@ class NeteaseMusic():
 
             results.append(result)       # save each song info to a list
         # save the list the song info to the dictionary
-        self.musicData.update(info = results)
+        self.musicMetadata.update(info = results)
 
-        return self.musicData
+        return self.musicMetadata
 
 
-    def search_by_id(self, id:int, bitrate=999000):
+    def get_song_info(self, id:int, bitrate=999000):
+        # - songInfo `dict`: detail data about the song (include downloadable link, size, and type etc.)
+
         params = {
             'id' : id,
             'br' : bitrate
@@ -91,8 +94,6 @@ class NeteaseMusic():
                 headers = self.headers,
                 params = params,
             ).json()
-
-            pprint(resp)
 
             # validate status code
             if resp['code'] != 200 or resp['data'][0]['code'] != 200:
@@ -112,11 +113,33 @@ class NeteaseMusic():
             }
             return songData
 
+        
+    def search_by_url(self, url:str):
+        '''
+        Search the metadata of the song given by its url or id
+
+        :Args: 
+            - url `str`: a NetEast music url which contains the song id 
+        :Returns:
+            - musicMetadata `dict`: metadata about the song (include artists, album, and length etc.)
+        '''
+        id = url
+        # parse the song id from the url link
+        if not url.isdigit():
+            id = re.findall(r'\Wid=(\d+)', url)[0]
+        musicMetadata = self.search(id)['info'][0]
+        songInfo = self.get_song_info(id)
+
+        # add the file name to song info for direct download
+        songInfo.update(filename=musicMetadata['filename'])
+        return musicMetadata, songInfo
+
 
     def download(self, song:dict, bitrate=320000):
-
-        # get the detail info of the song
-        songInfo = self.search_by_id(song['songid'], bitrate=bitrate)
+        songInfo = song
+        # retrieve the download link if song does not have it
+        if 'url' not in song:
+            songInfo = self.get_song_info(song['songid'], bitrate=bitrate)
         try:
             # get the binary data from the download link
             data = requests.get(songInfo['url'], headers = self.headers).content
@@ -126,9 +149,11 @@ class NeteaseMusic():
             if not os.path.exists(fileDir):
                 os.mkdir(fileDir)
 
+            print("{}.{} is downloading...".format(song['filename'], songInfo['type']))
             with open('%s%s.%s' % (fileDir, song['filename'], songInfo['type']), 'wb') as f:
                 f.write(data)
-                print("{}.{} {} download completed!".format(song['filename'], songInfo['type'], song['length']))
+            print("{}.{} download completed!".format(song['filename'], songInfo['type']))
+
             return song['filename']
         except Exception as e:
             print(f'ERROR: {type(e).__name__} - {e}')
@@ -137,6 +162,7 @@ class NeteaseMusic():
     def display(self):
         '''
         Display the formatted search result in a table
+        
         :Args: 
          - Songs `dict`: result data cotaining query and info
         :Returns:
@@ -145,9 +171,9 @@ class NeteaseMusic():
         table = PrettyTable()
         table.field_names = ['#', 'Title', 'Artist', 'Album', 'Length']
 
-        print('Total displayed: %s' % len(self.musicData['info']))
+        print('Total displayed: %s' % len(self.musicMetadata['info']))
 
-        for index, song in enumerate(self.musicData['info']) :
+        for index, song in enumerate(self.musicMetadata['info']) :
             names = ' & '.join([i['name'] for i in song['artist']])
             table.add_row([index+1, song['title'], names, song['album']['name'], song['length']])
         table.align = 'l'
@@ -167,16 +193,21 @@ class NeteaseMusic():
 if __name__ == "__main__":
     nm = NeteaseMusic()
 
-    ## testing search
-    result = nm.search('minute', limit = 10)
+    # ## testing search
+    # results = nm.search('every time i close my eyes', limit = 10)
     # nm.display()
-    song = result['info'][1]
-    pprint(song)
+    # selection = int(input('Select # of the song to download: '))
+    # song = results['info'][selection-1]
+    # pprint(song)
+
 
     ## testing download 1450574147  21224431  318143 1308010773
-    # pprint(nm.search_by_id(2990399))
-    nm.download(song, bitrate=990000)
+    # pprint(nm.get_song_info(2990399))
 
     ## testing login functions
     # nm.login()
 
+    ## testing search by url
+    data = nm.search_by_url("34916664")
+    print(type(data))
+    nm.download(data[1], bitrate=320000)
