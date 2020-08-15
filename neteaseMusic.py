@@ -200,18 +200,24 @@ class NeteaseMusic():
         )
         print(resp.status_code)
 
+
+    def timeConvert(self, timestamps:int):
+        return datetime.datetime.fromtimestamp(timestamps).strftime('%Y-%m-%d %H:%M:%S')
+
+
 if __name__ == "__main__":
     nm = NeteaseMusic()
 
     # testing search
-    keywords =  input("Search: ")
-    results = nm.search(keywords, type= 1, limit = 10)
-    nm.display()
-    selection = int(input('Select # of the song to download: '))
-    song = results['info'][selection-1]
-    pprint(song)
+    # keywords =  input("Search: ")
+    # results = nm.search(keywords, type= 1, limit = 10)
+    # nm.display()
+    # selection = int(input('Select # of the song to download: '))
+    # song = results['info'][selection-1]
+    # pprint(song)
     # nm.download(song)
 
+    print(nm.timeConvert(1597385878))
 
     ## testing download 1450574147  21224431  318143 1308010773
     # pprint(nm.get_song_info(2990399))
