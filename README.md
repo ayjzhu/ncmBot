@@ -37,7 +37,7 @@ A Discord music bot that plays music on demand via NetEase Cloud Music
     - [ ] Display popular comments
     - [ ] Display lyric
     - [x] Fetch user infomation
-    - [ ] Fetch user's playlists
+    - [x] Fetch user's playlists
     - [ ] Interative voting of current song
 
 ## API In-Use

@@ -157,10 +157,73 @@ class User():
             return resp
         except Exception as e:
             print(f'ERROR: {type(e).__name__} - {e}')
+    
+
+    def get_playlist(self, uid:int):
+        try:
+            resp = requests.get(
+                '{}user/playlist'.format(self.baseUrl),
+                headers = self.headers,
+                params= {
+                    'uid' : uid
+                }
+            ).json()
+
+            if not resp['playlist']:
+                raise ValueError('Invalid! Please double check your user ID or the user does not have any playlist')
+            else:
+                playlists = resp['playlist']
+                data = {
+                    'count' : len(playlists),
+                    'playlists' : dict()
+                }
+
+                results = []
+                for playlist in playlists:
+                    result = {}
+                    result.update(
+                        # creator = self.get_user(uid),
+                        name = playlist['name'],
+                        id = playlist['id'],
+                        description = playlist['description'],
+                        count = {
+                            'play' : playlist['playCount'],
+                            'track' : playlist['trackCount']
+                        },
+                        tags = playlist['tags'],
+                        coverImage = playlist['coverImgUrl'],
+                        date = {
+                            'create' : playlist['createTime'],
+                            'update' : playlist['trackUpdateTime'], # changes when playlist order or new song updates
+                            'add' : playlist['trackNumberUpdateTime']   # changes only when new song update
+                        },
+                        playCount = playlist['playCount'],
+                        followers = playlist['subscribedCount'],
+                        own = True if playlist['creator']['userId'] == uid else False
+                    )
+                    results.append(result)
+
+                data.update(playlists = results)
+
+                return data
+        except Exception as e:
+            print(f'ERROR: {type(e).__name__} - {e}')
+
 
 
 if __name__ == "__main__":
     u = User()
-    print(u.is_login())
+    # print(u.is_login())
     # u.login(email='@126.com', pwd='')
-    pprint(u.get_subcount())
+    print(u.get_subcount())
+    user_id = u.is_login()['userId']
+    print(user_id)
+    playlists = u.get_playlist(user_id)
+    # for index, p in enumerate( playlists['playlists']) :
+    #     print('{1}. {0}'.format(p['name'], index+1))
+    count = 0
+    for p in playlists['playlists']:
+        if p['own'] == True:
+            count += 1
+    print(count)
+    print(playlists['count'])
