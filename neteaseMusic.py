@@ -72,8 +72,8 @@ class NeteaseMusic():
                     'picid' : 18651015743755216
                 },
                 'length': '%02d:%02d' %(divmod(song['duration']/1000, 60)),                                    # convert ms to seconds
-                'songid': song['id'],
-                'songurl': 'https://music.163.com/#/song?id=%s' % song['id']
+                'songId': song['id'],
+                'songUrl': 'https://music.163.com/#/song?id=%s' % song['id']
             }
 
             # the filename contains all of the artist names
@@ -127,6 +127,67 @@ class NeteaseMusic():
                 'fee' : 'vip only' if song['fee'] == 1 else 'free'
             }
             return songData
+    
+    def get_playlist_detail(self):
+        pass
+
+
+    def get_song_detail(self, *args):
+
+        if len(args) > 1:
+            # concatenate to a string with comma seperation
+            ids = ','.join(map(str,args))
+        else:
+            ids = args
+
+        try:
+            resp = requests.get(
+                '{}song/detail'.format(self.baseUrl),
+                headers = self.headers,
+                params = {
+                    'ids' : ids
+                }
+            )
+            # validate song id by checking if the list is empty
+            if '"code":400' in resp.text or not resp.json()['songs'] != 200:
+                raise ValueError('Invalid! Please double check your song ID.')
+        except Exception as e:
+            print(f'ERROR: {type(e).__name__} - {e}')
+        else:
+            results = []
+            resp = resp.json()
+            songs = resp['songs']
+
+            for song in songs:
+                sizes = {
+                    128000: song['l']['size'],
+                    192000: song['m']['size'],
+                    320000: song['h']['size']
+                }
+                result = {
+                    'title': song['name'],
+                    'artist': [dict(name= artist['name'], id= artist['id']) for artist in song['ar']],
+                    'album': {
+                        'name': song['al']['name'],
+                        'id': song['al']['id'],
+                        'picture': song['al']['picUrl'],
+                        'publishTime': self.timeConvert(song['publishTime']/1000)
+                    },
+                    'length': '%02d:%02d' %(divmod(song['dt']/1000,60)),                                    # convert ms to seconds
+                    'songid': song['id'],
+                    'size': {size:'{:.1f} MB'.format(value/1_000_000) for size, value in sizes.items()},    # convert each bitrates to megabytes
+                                       # convert ms to seconds
+                    'songurl': 'https://music.163.com/#/song?id=%s' % song['id']
+                }
+                # the filename contains all of the artist names
+                names = ' & '.join([i['name'] for i in result['artist']])
+                filename = '%s - %s.mp3' % (names, result['title'])
+                # save the audio file name
+                result.update(filename=filename)
+
+                # save each song info to a list
+                results.append(result)
+            return results
 
         
     def search_by_url(self, url:str):
@@ -149,7 +210,7 @@ class NeteaseMusic():
 
     def download(self, song:dict, bitrate=999000):
         # get the detail info of the song
-        songData = self.get_song_data(song['songid'], bitrate=bitrate)
+        songData = self.get_song_data(song['songId'], bitrate=bitrate)
         try:
             print("{}.{} is downloading...".format(song['filename'], songData['type']))
             # get the binary data from the download link
@@ -167,6 +228,10 @@ class NeteaseMusic():
             return song['filename']
         except Exception as e:
             print(f'ERROR: {type(e).__name__} - {e}')
+
+
+    def get_playlist_songs(self, url:str):
+        pass
 
 
     def display(self):
@@ -193,6 +258,7 @@ class NeteaseMusic():
 
         return table
 
+
     def login(self):
         resp = requests.get(
             '{}login/status'.format(self.baseUrl),
@@ -202,13 +268,13 @@ class NeteaseMusic():
 
 
     def timeConvert(self, timestamps:int):
-        return datetime.datetime.fromtimestamp(timestamps).strftime('%Y-%m-%d %H:%M:%S')
+        return datetime.datetime.fromtimestamp(timestamps/1000).strftime('%Y-%m-%d %H:%M:%S')
 
 
 if __name__ == "__main__":
     nm = NeteaseMusic()
 
-    # testing search
+    # # testing search
     # keywords =  input("Search: ")
     # results = nm.search(keywords, type= 1, limit = 10)
     # nm.display()
@@ -217,17 +283,20 @@ if __name__ == "__main__":
     # pprint(song)
     # nm.download(song)
 
-    print(nm.timeConvert(1597385878))
-
     ## testing download 1450574147  21224431  318143 1308010773
-    # pprint(nm.get_song_info(2990399))
+    # pprint(nm.get_song_data(2990399))
 
     # # testing login functions
     # nm.login()
 
     # # testing search by url
-    # data = nm.search_by_url("http://music.163.com/song?id=26470629&userid=315274012")
+    # data = nm.search_by_url("http://music.163.com/song?id=26470629")
     # print(type(data))
     # pprint(data)
+
+    ## testing playlist
+    # r = nm.get_song_detail(461124860,516654052)
+    # for i in r:
+    #     pprint(i) 
 
     # nm.download(data)
