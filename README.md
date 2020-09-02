@@ -21,7 +21,7 @@ A Discord music bot that plays music on demand via NetEase Cloud Music
 ## Development Roadmap
 - Basic playback functionalities of a music player
     - [ ] Load or import playlist to queue
-    - [ ] Play songs in a queue
+    - [ ] Play songs from a queue
     - [x] Song downloading
     - [ ] Stop player and properly clear queue
 - Admin

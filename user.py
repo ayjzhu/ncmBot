@@ -45,7 +45,7 @@ class User():
                 self.isLogIn = True
                 # Retrieve account infomation
                 self.userData['account'].update(
-                    userid = resp['account']['id'],
+                    userId = resp['account']['id'],
                     salt = resp['account']['salt'],
                     token = resp['token'],
                     cookie = resp['cookie']
@@ -71,7 +71,7 @@ class User():
             else:
                 # Retrieve personal profile infomation
                 profile_data = {
-                    'userid' : resp['profile']['userId'],
+                    'userId' : resp['profile']['userId'],
                     'userName' : resp['profile']['nickname'],
                     'signature' : resp['profile']['signature'],
                     'level' : resp['level'],
