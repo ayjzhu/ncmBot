@@ -93,27 +93,34 @@ class NeteaseMusic():
         Search the metadata of the song given by its url or id
 
         :Args: 
-            - url `str`: a NetEast music url which contains the song id 
+            - url `str`: a NetEast music url which contains the song id
+                or `int`": the song id
         :Returns:
-            - musicMetadata `dict`: metadata about the song (include artists, album, and length etc.)
+            - MusicMetaData `dict`: metadata about the song (include artists, album, and length etc.)
         '''
         id = url
         # parse the song id from the url link
-        if not url.isdigit():
+        if not isinstance(id, int):
             id = re.findall(r'\Wid=(\d+)', url)[0]
-        musicMetadata = self.search(id)['info'][0]
+        try:
+            musicMetaData = self.get_song(id)
 
-        return musicMetadata
+            if musicMetaData is None:
+                raise ValueError('Invalid! Please double check your url link or song ID.')
+        except Exception as e:
+            print(f'ERROR: {type(e).__name__} - {e}')
+        else:                
+            return musicMetaData[0]
 
 
-    def get_song_data(self, id:int, bitrate=999000):
+    def get_file_data(self, id:int, bitrate=999000):
         '''
         Retrieve the metadata of the song file (id, url, bitrate, size, type, quality, and fee)
 
         :Args: 
             - id `int`: song id of the song
         :Returns:
-            - songData `dict`: detail data of the song file
+            - metaData `dict`: detail data of the song file
         '''
         params = {
             'id' : id,
@@ -135,7 +142,7 @@ class NeteaseMusic():
             print(f'ERROR: {type(e).__name__} - {e}')
         else:
             song = resp['data'][0]
-            songData = {
+            metaData = {
                 'id' : id,
                 'url' : song['url'],
                 'bitrate' : int(song['br'] / 1000),
@@ -144,17 +151,17 @@ class NeteaseMusic():
                 'quality' : song['level'],
                 'fee' : 'vip only' if song['fee'] == 1 else 'free'
             }
-            return songData
+            return metaData
     
 
-    def get_song_detail(self, *args):
+    def get_song(self, *args):
         '''
-        Get the detail infomation of the song
+        Get the detail infomation of the given song
 
         :Args:
             - args `int`: song IDs
         :Returns:
-            - results `dict`: metadata about the song (include artists, album, and length etc.)
+            - results `list`: metadata about the song(s) (include artists, album, and length etc.)
         '''
         if len(args) > 1:
             # concatenate to a string with comma seperation
@@ -224,31 +231,132 @@ class NeteaseMusic():
             return results
 
 
-    def get_playlist_detail(self):
-        pass
+    def get_playlist(self, url:str):
+        '''
+        Get the detail infomation of the given playlist
 
+        :Args:
+            - url `str`: a NetEast music playlist url which contains the playlist id
+                or `int`": the song id
+        :Returns:
+            - result `dict`: metadata about the playlist (include a list of trackIds, playlist, and creator info etc.)
+        '''
 
-    def get_playlist_songs(self, url:str):
-        pass
-
-
-    def download(self, songID:int, bitrate=999000):
-        song = self.get_song_detail(songID)[0]
-        # get the detail info of the song
-        songData = self.get_song_data(song['songId'], bitrate=bitrate)
+        pid = url
+        # parse the playlist id from the url link
+        if not isinstance(id, int):
+            id = re.findall(r'\Wid=(\d+)', url)[0]
         try:
-            print("{}.{} is downloading...".format(song['filename'], songData['type']))
+            resp = requests.get(
+                '{}playlist/detail'.format(self.baseUrl),
+                headers = self.headers,
+                params = {
+                    'id' : pid
+                }
+            ).json()
+            # validate playlist id
+            if resp['code'] != 200:
+                raise ValueError('Invalid! Please double check your playlist ID.')
+        except Exception as e:
+            print(f'ERROR: {type(e).__name__} - {e}')
+        else:
+            playlist = resp['playlist']
+            result = {
+                'playlist' : {
+                    'name' : playlist['name'],
+                    'id' : playlist['id'],
+                    'description' : playlist['description'],
+                    'count' : {
+                        'plays' : playlist['playCount'],
+                        'tracks' : playlist['trackCount']
+                    },
+                    'tags' : playlist['tags'],
+                    'coverImage' : playlist['coverImgUrl'],
+                    'date' : {
+                        'create' : self.timeConvert(playlist['createTime']),
+                        'update' : self.timeConvert(playlist['trackUpdateTime']), # changes when playlist order or new song updates
+                        'add' : self.timeConvert(playlist['trackNumberUpdateTime'])   # changes only when new song update
+                    },
+                    'followers' : playlist['subscribedCount'],
+                    'trackIds' : []
+                },
+                'creator' : {
+                    'userName' : playlist['creator']['nickname'],
+                    'userId' : playlist['creator']['userId'],
+                    'signature' : playlist['creator']['signature'],
+                    'picture': {
+                        'avatar' : {
+                            'id' : playlist['creator']['avatarImgId'],
+                            'url' : playlist['creator']['avatarUrl']
+                        },
+                        'background' : {
+                            'id' : playlist['creator']['backgroundImgId'],
+                            'url' : playlist['creator']['backgroundUrl']
+                        }
+                    },
+                    'birthday' : self.timeConvert(playlist['creator']['birthday']),
+                    'isVip' : True if playlist['creator']['vipType'] > 0 else False,
+                    'url' : f"https://music.163.com/#/user?id={playlist['creator']['userId']}" 
+                }
+            }
+
+            # add tracks id in the playlist
+            for track in playlist['trackIds']:
+                result['playlist']['trackIds'].append(track['id'])
+            
+            return result
+
+
+    def get_lyric(self, id:int):
+        # assuing the given song has lyric
+        try:
+            resp = requests.get(
+                '{}lyric'.format(self.baseUrl),
+                headers = self.headers,
+                params = {
+                    'id' : id
+                }
+            ).json()
+            # validate playlist id
+            if resp['code'] != 200:
+                raise ValueError('Invalid! Please double check your song ID.')
+        except Exception as e:
+            print(f'ERROR: {type(e).__name__} - {e}')
+        else:
+            result = {
+                'contributor' : {
+                    'name' : resp['lyricUser']['nickname'],
+                    'id' : resp['lyricUser']['userid'],
+                    'uptime' : self.timeConvert(resp['lyricUser']['uptime'])
+                },
+                'lrc' : {
+                    'version' : resp['lrc']['version'],
+                    'lyric' : resp['lrc']['lyric']
+                }
+            }
+            return result
+
+
+    def download(self, id:int, bitrate=999000):
+        # get the detail info of the song
+        song = self.get_song(id)[0]
+        print("Music infomation of {} is obtained!".format(song['filename']))
+
+        # get the info of the music file
+        fileData = self.get_file_data(song['songId'], bitrate=bitrate)
+        try:
+            print("{}.{} is downloading...".format(song['filename'], fileData['type']))
             # get the binary data from the download link
-            data = requests.get(songData['url'], headers = self.headers).content
+            data = requests.get(fileData['url'], headers = self.headers).content
 
             # create a new directory if haven't done so
             fileDir = 'songs/'
             if not os.path.exists(fileDir):
                 os.mkdir(fileDir)
 
-            with open('%s%s.%s' % (fileDir, song['filename'], songData['type']), 'wb') as f:
+            with open('%s%s.%s' % (fileDir, song['filename'], fileData['type']), 'wb') as f:
                 f.write(data)
-            print("{}.{} {} download completed!".format(song['filename'], songData['type'], songData['size']))
+            print("{}.{} {} download completed!".format(song['filename'], fileData['type'], fileData['size']))
 
             return song['filename']
         except Exception as e:
@@ -305,23 +413,30 @@ if __name__ == "__main__":
     # nm.download(song)
 
     ## testing download 1450574147  21224431  318143 1308010773
-    # pprint(nm.get_song_data(2990399))
+    # pprint(nm.get_file_data(2990399))
 
-    # # testing login functions
+    # testing login functions
     # nm.login()
 
     # # testing search by url
-    # data = nm.search_by_url("http://music.163.com/song?id=26470629")
-    # print(type(data))
+    # data = nm.search_by_url('https://music.163.com/#/song?id=96391')
     # pprint(data)
 
-    # # testing playlist
-    # # r = nm.get_song_detail(190508,251669,318143)
-    # r = nm.get_song_detail(28909067)
+    # # testing get song details
+    # # r = nm.get_song(190508,251669,318143)
+    # r = nm.get_song(28909067)
     # for i in r:
     #     pprint(i)
 
-    # r = nm.get_song_data(28909067,320000)
+    # r = nm.get_file_data(28909067,320000)
     # pprint(r)
 
-    nm.download(28909067)
+    # # testing get playlist
+    # playlist = nm.get_playlist(2683935608)
+    # pprint(playlist)
+
+    # testing get lyric
+    pprint(nm.get_lyric(114913228))
+
+
+    # nm.download(212462)
