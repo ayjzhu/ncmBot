@@ -1,6 +1,7 @@
 import requests
 from configparser import ConfigParser
 from pprint import pprint
+import datetime
 
 class User():
 
@@ -23,6 +24,10 @@ class User():
                 subscribers = 0
             )
         }
+
+
+    def timeConvert(self, timestamps:int):
+        return datetime.datetime.fromtimestamp(timestamps/1000).strftime('%Y-%m-%d %H:%M:%S')
 
 
     def login(self, email:str, pwd:str):
@@ -77,7 +82,7 @@ class User():
                     'level' : resp['level'],
                     'listenSongs' : resp['listenSongs'],
                     'balance' : resp['userPoint']['balance'],
-                    'updateTime' : resp['userPoint']['updateTime'],
+                    'updateTime' : self.timeConvert(resp['userPoint']['updateTime']),
                     'picture': {
                         'avatar' : {
                             'id' : resp['profile']['avatarImgId'],
@@ -91,7 +96,7 @@ class User():
                     'birthday' : resp['profile']['birthday'],
                     'follows' : resp['profile']['followeds'],
                     'followers' : resp['profile']['follows'],
-                    'dateCreated' : resp['profile']['createTime'],
+                    'dateCreated' : self.timeConvert(resp['profile']['createTime']),
                     'daysCreated' : resp['createDays'],
                     'isVip' : True if resp['profile']['vipType'] > 0 else False,
                     'url' : f"https://music.163.com/#/user?id={resp['profile']['userId']}" 
@@ -159,7 +164,7 @@ class User():
             print(f'ERROR: {type(e).__name__} - {e}')
     
 
-    def get_playlist(self, uid:int):
+    def get_playlists(self, uid:int):
         try:
             resp = requests.get(
                 '{}user/playlist'.format(self.baseUrl),
@@ -187,25 +192,23 @@ class User():
                         id = playlist['id'],
                         description = playlist['description'],
                         count = {
-                            'play' : playlist['playCount'],
-                            'track' : playlist['trackCount']
+                            'plays' : playlist['playCount'],
+                            'tracks' : playlist['trackCount']
                         },
                         tags = playlist['tags'],
                         coverImage = playlist['coverImgUrl'],
                         date = {
-                            'create' : playlist['createTime'],
-                            'update' : playlist['trackUpdateTime'], # changes when playlist order or new song updates
-                            'add' : playlist['trackNumberUpdateTime']   # changes only when new song update
+                            'create' : self.timeConvert(playlist['createTime']),
+                            'update' : self.timeConvert(playlist['trackUpdateTime']), # changes when playlist order or new song updates
+                            'add' : self.timeConvert(playlist['trackNumberUpdateTime'])   # changes only when new song update
                         },
-                        playCount = playlist['playCount'],
                         followers = playlist['subscribedCount'],
                         own = True if playlist['creator']['userId'] == uid else False
                     )
                     results.append(result)
-
                 data.update(playlists = results)
-
                 return data
+
         except Exception as e:
             print(f'ERROR: {type(e).__name__} - {e}')
 
@@ -217,13 +220,16 @@ if __name__ == "__main__":
     # u.login(email='@126.com', pwd='')
     print(u.get_subcount())
     user_id = u.is_login()['userId']
-    print(user_id)
-    playlists = u.get_playlist(user_id)
+    playlists = u.get_playlists(user_id)
+
     # for index, p in enumerate( playlists['playlists']) :
     #     print('{1}. {0}'.format(p['name'], index+1))
+
     count = 0
     for p in playlists['playlists']:
         if p['own'] == True:
             count += 1
     print(count)
     print(playlists['count'])
+
+    # pprint(u.get_user(user_id))
