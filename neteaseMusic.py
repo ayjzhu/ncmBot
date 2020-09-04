@@ -418,7 +418,7 @@ class NeteaseMusic():
             return results
 
 
-    def get_music_comments(self, id:int, limit=20, offset=0):
+    def get_music_comments(self, id:int, limit=20, offset=0, isHotComment=True):
         params = {
             'id' : id,
             'limit' : limit,
@@ -439,12 +439,32 @@ class NeteaseMusic():
             print(f'ERROR: {type(e).__name__} - {e}')
         else:
             results = dict(
-                hotComments = self.__get_comments(resp['hotComments']),
                 comments = self.__get_comments(resp['comments']),
                 total = resp['total'],
                 more = resp['more']
             )
+            if isHotComment:
+                results.update(hotComments = self.__get_comments(resp['hotComments']))
             return results
+
+
+    def set_like_to_comment(self, id:int, cid:int, toLike=True, _type=0):
+        params = {
+            'id' : id,
+            'cid' : cid,
+            't' : 1 if toLike else 0,
+            'type' : _type
+        }
+        try:
+            resp = requests.get(
+                '{}comment/like'.format(self.baseUrl),
+                headers=self.headers,
+                params=params
+            ).json()
+        except Exception as e:
+            print(f'ERROR: {type(e).__name__} - {e}')
+        else:
+            return "Sucess!" if resp['code'] == 200 else 'Fail!'
 
 
     def download(self, id:int, bitrate=999000):
@@ -549,10 +569,15 @@ if __name__ == "__main__":
     # pprint(nm.get_lyric(114913228))
 
 
-    # # testing get comments 3203846 501846756 263648
+    # testing get comments 3203846 501846756 263648
     # c = nm.get_hot_comments(501846756, limit=10)
-    # c = nm.get_music_comments(501846756, limit=0)
+    # c = nm.get_music_comments(501846756, limit=5)
     # pprint(c)
+
+    # testing like a comment
+    # 1485705313
+    # print(nm.set_like_to_comment(501846756,cid=3443989791, toLike=False))
+    
 
 
     # nm.download(212462)
