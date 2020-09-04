@@ -28,7 +28,7 @@ class NeteaseMusic():
         }
 
 
-    def search(self, keywords:str, limit=10, offset=0, type=1):
+    def search(self, keywords:str, limit=10, offset=0, _type=1):
         '''
         Search for music base on keywords. Precise search if 'type' is supplied\n
         Types: 1: 单曲, 10: 专辑, 100: 歌手, 1000: 歌单, 1002: 用户, 1004: MV, 1006: 歌词, 1009: 电台, 1014: 视频, 1018:综合
@@ -45,7 +45,7 @@ class NeteaseMusic():
             'keywords' : keywords,
             'limit' : limit,
             'offset' : offset,
-            'type' : type
+            'type' : _type
         }
         resp = requests.get(
             '{}search'.format(self.baseUrl),
@@ -336,6 +336,59 @@ class NeteaseMusic():
             }
             return result
 
+    
+    def get_hot_comments(self, id:int, _type=0, limit=20, offset=0):
+        # 0:song, 1:mv, 2:playlist, 3:album, 4:radio, 5:video
+
+        params = {
+            'id' : id,
+            'limit' : limit,
+            'offset' : offset,
+            'type' : _type
+        }
+        try:
+            resp = requests.get(
+                '{}comment/hot'.format(self.baseUrl),
+                headers=self.headers,
+                params=params
+            ).json()
+
+            if resp['code'] != 200:
+                raise ValueError('Invalid! Please double check your song ID.')
+            elif resp['total'] == 0:   # invalid id or no comment
+                return None
+        except Exception as e:
+            print(f'ERROR: {type(e).__name__} - {e}')
+        else:
+            results = dict(
+                hotComments = [],
+                total = resp['total'],
+                more = resp['hasMore'],
+            )
+            
+            for hc in resp['hotComments']:
+                comment = {
+                    'user' : {
+                        'name' : hc['user']['nickname'],
+                        'id' : hc['user']['userId'],
+                        'avatar' : hc['user']['avatarUrl'],
+                        'isVip' : True if hc['user']['vipType'] > 0 else False
+                    },
+                    'comment' : {
+                        'id' : hc['commentId'],
+                        'content' : hc['content'],
+                        'time' : self.timeConvert(hc['time']),
+                        'likes' : hc['likedCount'],
+                        'isLiked' : hc['liked']
+                    }
+                }
+                results['hotComments'].append(comment)
+            return results
+
+
+    def get_comments():
+        pass
+
 
     def download(self, id:int, bitrate=999000):
         # get the detail info of the song
@@ -405,7 +458,7 @@ if __name__ == "__main__":
 
     # # testing search
     # keywords =  input("Search: ")
-    # results = nm.search(keywords, type= 1, limit = 10)
+    # results = nm.search(keywords, _type= 1, limit = 10)
     # nm.display()
     # selection = int(input('Select # of the song to download: '))
     # song = results['info'][selection-1]
@@ -435,8 +488,11 @@ if __name__ == "__main__":
     # playlist = nm.get_playlist(2683935608)
     # pprint(playlist)
 
-    # testing get lyric
-    pprint(nm.get_lyric(114913228))
+    # # testing get lyric
+    # pprint(nm.get_lyric(114913228))
 
 
+    # testing get comments
+    c = nm.get_hot_comments(191171, limit=10)
+    pprint(c)
     # nm.download(212462)
