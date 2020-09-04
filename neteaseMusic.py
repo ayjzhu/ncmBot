@@ -336,7 +336,57 @@ class NeteaseMusic():
             }
             return result
 
-    
+    # private method to fetch comment
+    def __get_comments(self, comments:list):
+        '''
+        Fetch the comments and store into a list
+
+        :Args:
+            - comment `list`: a list contains the comments
+        :Returns:
+            - result `list`: a list of comments with user info
+        '''        
+        if comments is None:
+            return None
+        
+        results = []
+        for hc in comments:
+            comment = {
+                'user' : {
+                    'name' : hc['user']['nickname'],
+                    'id' : hc['user']['userId'],
+                    'avatar' : hc['user']['avatarUrl'],
+                    'isVip' : True if hc['user']['vipType'] > 0 else False
+                },
+                'comment' : {
+                    'id' : hc['commentId'],
+                    'content' : hc['content'],
+                    'time' : self.timeConvert(hc['time']),
+                    'likes' : hc['likedCount'],
+                    'isLiked' : hc['liked'],
+                },
+            }
+            # add the parent comment if it exist
+            if hc['beReplied']:
+                parentComment = hc['beReplied'][0]
+                comment.update({
+                    'parentComment' : {
+                        'user' : {
+                            'name' : parentComment['user']['nickname'],
+                            'id' : parentComment['user']['userId'],
+                            'avatar' : parentComment['user']['avatarUrl'],
+                            'isVip' : True if parentComment['user']['vipType'] > 0 else False
+                        },
+                        'comment' : {
+                            'id' : parentComment['beRepliedCommentId'],
+                            'content' : parentComment['content']
+                        }                         
+                    }
+                })
+            results.append(comment)
+        return results
+
+
     def get_hot_comments(self, id:int, _type=0, limit=20, offset=0):
         # 0:song, 1:mv, 2:playlist, 3:album, 4:radio, 5:video
 
@@ -361,33 +411,40 @@ class NeteaseMusic():
             print(f'ERROR: {type(e).__name__} - {e}')
         else:
             results = dict(
-                hotComments = [],
+                hotComments = self.__get_comments(resp['hotComments']),
                 total = resp['total'],
-                more = resp['hasMore'],
+                more = resp['hasMore']
             )
-            
-            for hc in resp['hotComments']:
-                comment = {
-                    'user' : {
-                        'name' : hc['user']['nickname'],
-                        'id' : hc['user']['userId'],
-                        'avatar' : hc['user']['avatarUrl'],
-                        'isVip' : True if hc['user']['vipType'] > 0 else False
-                    },
-                    'comment' : {
-                        'id' : hc['commentId'],
-                        'content' : hc['content'],
-                        'time' : self.timeConvert(hc['time']),
-                        'likes' : hc['likedCount'],
-                        'isLiked' : hc['liked']
-                    }
-                }
-                results['hotComments'].append(comment)
             return results
 
 
-    def get_comments():
-        pass
+    def get_music_comments(self, id:int, limit=20, offset=0):
+        params = {
+            'id' : id,
+            'limit' : limit,
+            'offset' : offset
+        }
+        try:
+            resp = requests.get(
+                '{}comment/music'.format(self.baseUrl),
+                headers=self.headers,
+                params=params
+            ).json()
+
+            if resp['code'] != 200:
+                raise ValueError('Invalid! Please double check your song ID.')
+            elif resp['total'] == 0:   # invalid id or no comment
+                return None
+        except Exception as e:
+            print(f'ERROR: {type(e).__name__} - {e}')
+        else:
+            results = dict(
+                hotComments = self.__get_comments(resp['hotComments']),
+                comments = self.__get_comments(resp['comments']),
+                total = resp['total'],
+                more = resp['more']
+            )
+            return results
 
 
     def download(self, id:int, bitrate=999000):
@@ -492,7 +549,10 @@ if __name__ == "__main__":
     # pprint(nm.get_lyric(114913228))
 
 
-    # testing get comments
-    c = nm.get_hot_comments(191171, limit=10)
-    pprint(c)
+    # # testing get comments 3203846 501846756 263648
+    # c = nm.get_hot_comments(501846756, limit=10)
+    # c = nm.get_music_comments(501846756, limit=0)
+    # pprint(c)
+
+
     # nm.download(212462)
