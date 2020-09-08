@@ -72,7 +72,7 @@ class NeteaseMusic():
                     'picid' : song['album']['picId']
                 },
                 'length': '%02d:%02d' %(divmod(song['duration']/1000, 60)),                                    # convert ms to seconds
-                'songId': song['id'],
+                'id': song['id'],
                 'songUrl': 'https://music.163.com/#/song?id=%s' % song['id']
             }
 
@@ -113,7 +113,7 @@ class NeteaseMusic():
             return musicMetaData[0]
 
 
-    def get_file_data(self, id:int, bitrate=999000):
+    def get_audio_file(self, id:int, bitrate=999000):
         '''
         Retrieve the metadata of the song file (id, url, bitrate, size, type, quality, and fee)
 
@@ -205,11 +205,11 @@ class NeteaseMusic():
                         'publishTime': self.timeConvert(song['publishTime']/1000)
                     },
                     'length': '%02d:%02d' %(divmod(song['dt']/1000,60)),                                    # convert ms to seconds
-                    'songId': song['id'],
+                    'id': song['id'],
                     'size': {size:'{:.1f} MB'.format(value/1_000_000) for size, value in sizes.items()},    # convert each bitrates to megabytes
                     'fee' : '',
                     'maxBitrate' : privilege['maxbr'],
-                    'songurl': 'https://music.163.com/#/song?id=%s' % song['id']
+                    'url': 'https://music.163.com/#/song?id=%s' % song['id']
                 }
 
                 # update fee infomation
@@ -473,9 +473,10 @@ class NeteaseMusic():
         print("Music infomation of {} is obtained!".format(song['filename']))
 
         # get the info of the music file
-        fileData = self.get_file_data(song['songId'], bitrate=bitrate)
+        fileData = self.get_audio_file(song['id'], bitrate=bitrate)
         try:
-            print("{}.{} is downloading...".format(song['filename'], fileData['type']))
+            filename = '{}.{}'.format(song['filename'], fileData['type'])
+            print("{} is downloading...".format(filename))
             # get the binary data from the download link
             data = requests.get(fileData['url'], headers = self.headers).content
 
@@ -484,11 +485,11 @@ class NeteaseMusic():
             if not os.path.exists(fileDir):
                 os.mkdir(fileDir)
 
-            with open('%s%s.%s' % (fileDir, song['filename'], fileData['type']), 'wb') as f:
+            with open('%s%s' % (fileDir, filename), 'wb') as f:
                 f.write(data)
-            print("{}.{} {} download completed!".format(song['filename'], fileData['type'], fileData['size']))
+            print("{} in {} download completed!".format(filename, fileData['size']))
 
-            return song['filename']
+            return filename
         except Exception as e:
             print(f'ERROR: {type(e).__name__} - {e}')
 
@@ -543,7 +544,7 @@ if __name__ == "__main__":
     # nm.download(song)
 
     ## testing download 1450574147  21224431  318143 1308010773
-    # pprint(nm.get_file_data(2990399))
+    # pprint(nm.get_audio_file(2990399))
 
     # testing login functions
     # nm.login()
@@ -558,7 +559,7 @@ if __name__ == "__main__":
     # for i in r:
     #     pprint(i)
 
-    # r = nm.get_file_data(28909067,320000)
+    # r = nm.get_audio_file(28909067,320000)
     # pprint(r)
 
     # # testing get playlist
@@ -579,5 +580,4 @@ if __name__ == "__main__":
     # print(nm.set_like_to_comment(501846756,cid=3443989791, toLike=False))
     
 
-
-    # nm.download(212462)
+    print(nm.download(191783))
