@@ -60,7 +60,7 @@ class NeteaseMusic():
         )
 
         results = []
-        convert = lambda t: datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %H:%M:%S')
+        convert = lambda t: datetime.datetime.fromtimestamp(t/1000).strftime('%Y-%m-%d %H:%M:%S')
         for song in songs:
             result = {
                 'title': song['name'],
@@ -68,10 +68,10 @@ class NeteaseMusic():
                 'album': {
                     'name': song['album']['name'],
                     'id': song['album']['id'],
-                    'publishTime': convert(song['album']['publishTime']/1000),                                   # convert ms to seconds
+                    'publishTime': convert(song['album']['publishTime']),         # convert ms to seconds
                     'picid' : song['album']['picId']
                 },
-                'length': '%02d:%02d' %(divmod(song['duration']/1000, 60)),                                    # convert ms to seconds
+                'length': '%02d:%02d' %(divmod(song['duration']/1000, 60)),       # convert ms to seconds
                 'id': song['id'],
                 'songUrl': 'https://music.163.com/#/song?id=%s' % song['id']
             }
@@ -154,20 +154,18 @@ class NeteaseMusic():
             return metaData
     
 
-    def get_song(self, *args):
+    def get_song(self, ids):
         '''
         Get the detail infomation of the given song
 
         :Args:
-            - args `int`: song IDs
+            - ids `int`: song IDs
         :Returns:
             - results `list`: metadata about the song(s) (include artists, album, and length etc.)
         '''
-        if len(args) > 1:
-            # concatenate to a string with comma seperation
-            ids = ','.join(map(str,args))
-        else:
-            ids = args
+        # concatenate to a string with comma seperation if it is a list
+        if isinstance(ids, list):
+            ids = ','.join(map(str,ids))
 
         try:
             resp = requests.get(
@@ -189,10 +187,11 @@ class NeteaseMusic():
                 song = songs[i]
                 privilege = resp.json()['privileges'][i]
 
+                # some songs may not have all available bitrates data
                 sizes = {
-                    128000: song['l']['size'],
-                    192000: song['m']['size'],
-                    320000: song['h']['size']
+                    128000: song.get('l').get('size') if song.get('l') is not None else 0,
+                    192000: song.get('m').get('size') if song.get('m') is not None else 0,
+                    320000: song.get('h').get('size') if song.get('h') is not None else 0
                 }
                     
                 result = {
@@ -202,7 +201,7 @@ class NeteaseMusic():
                         'name': song['al']['name'],
                         'id': song['al']['id'],
                         'picture': song['al']['picUrl'],
-                        'publishTime': self.timeConvert(song['publishTime']/1000)
+                        'publishTime': self.timeConvert(song['publishTime']) if song['publishTime'] > 0 else "N/A"
                     },
                     'length': '%02d:%02d' %(divmod(song['dt']/1000,60)),                                    # convert ms to seconds
                     'id': song['id'],
@@ -244,8 +243,8 @@ class NeteaseMusic():
 
         pid = url
         # parse the playlist id from the url link
-        if not isinstance(id, int):
-            id = re.findall(r'\Wid=(\d+)', url)[0]
+        if not isinstance(pid, int):
+            pid = re.findall(r'\Wid=(\d+)', url)[0]
         try:
             resp = requests.get(
                 '{}playlist/detail'.format(self.baseUrl),
@@ -562,9 +561,11 @@ if __name__ == "__main__":
     # r = nm.get_audio_file(28909067,320000)
     # pprint(r)
 
-    # # testing get playlist
+    # testing get playlist
     # playlist = nm.get_playlist(2683935608)
-    # pprint(playlist)
+    playlist = nm.get_playlist('http://music.163.com/playlist?id=4869945748&userid=315274012')
+    print((playlist['playlist']['trackIds']))
+    pprint(nm.get_song(playlist['playlist']['trackIds']))
 
     # # testing get lyric
     # pprint(nm.get_lyric(114913228))
@@ -580,4 +581,4 @@ if __name__ == "__main__":
     # print(nm.set_like_to_comment(501846756,cid=3443989791, toLike=False))
     
 
-    print(nm.download(191783))
+    # print(nm.download(191783))
