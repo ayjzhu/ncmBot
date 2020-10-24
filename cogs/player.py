@@ -29,9 +29,9 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
 
         return state
 
-    # def cog_unload(self):
-    #     for state in self.voice_states.values():
-    #         self.client.loop.create_task(state.stop())
+    def cog_unload(self):
+        for state in self.voice_states.values():
+            self.client.loop.create_task(state.stop())
 
     def cog_check(self, ctx: commands.Context):
         if not ctx.guild:
@@ -232,13 +232,27 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
         await message.edit(content='All songs has been added to the player queue!')
         await message.add_reaction('\U0001F44D')
 
+
     @commands.command()
-    async def test(self, ctx, msg):
-        message = await ctx.send('Hello' + ctx.author.name)
-        print(type(message))
-        print(message.activity)
-        await asyncio.sleep(1)        
-        await message.edit(content= msg)
+    async def lyric(self, ctx:commands.Context):
+        if not ctx.voice_state.voice:
+            await ctx.send('No song is playing currently!')
+        else:
+            currentSong = ctx.voice_state.current.source
+            songId = currentSong.id
+            lyric = self.music.get_lyric(songId)
+            artist = ' & '.join([i['name'] for i in currentSong.data['artist']])            
+            embed = (
+                discord.Embed(
+                    title = '%s by %s' % (currentSong.data.get('title'), artist),
+                    description = lyric.get('lrc')['lyric'],
+                    color = discord.Color.orange()
+                )
+                .set_footer(text = 'Contributed by {0}'.format(
+                    'N/A' if not lyric['contributor']['lyricUser'] else lyric['contributor']['lyricUser']['name'])
+                )
+            )          
+            await ctx.send(embed = embed)
 
 
     @commands.command()
