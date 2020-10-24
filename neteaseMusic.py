@@ -266,17 +266,17 @@ class NeteaseMusic():
                     'id' : playlist['id'],
                     'description' : playlist['description'],
                     'count' : {
-                        'plays' : playlist['playCount'],
-                        'tracks' : playlist['trackCount']
+                        'play' : playlist['playCount'],
+                        'track' : playlist['trackCount']
                     },
-                    'tags' : playlist['tags'],
+                    'tag' : playlist['tags'],
                     'coverImage' : playlist['coverImgUrl'],
                     'date' : {
                         'create' : self.timeConvert(playlist['createTime']),
                         'update' : self.timeConvert(playlist['trackUpdateTime']), # changes when playlist order or new song updates
                         'add' : self.timeConvert(playlist['trackNumberUpdateTime'])   # changes only when new song update
                     },
-                    'followers' : playlist['subscribedCount'],
+                    'follower' : playlist['subscribedCount'],
                     'trackIds' : []
                 },
                 'creator' : {
@@ -316,23 +316,40 @@ class NeteaseMusic():
                     'id' : id
                 }
             ).json()
-            # validate playlist id
-            if resp['code'] != 200:
-                raise ValueError('Invalid! Please double check your song ID.')
+            
+            # validate song id
+            if resp.get('lrc') is None or resp['code'] != 200:
+                raise ValueError('Invalid song ID or lyric is unavaliable!')
         except Exception as e:
             print(f'ERROR: {type(e).__name__} - {e}')
         else:
             result = {
                 'contributor' : {
-                    'name' : resp['lyricUser']['nickname'],
-                    'id' : resp['lyricUser']['userid'],
-                    'uptime' : self.timeConvert(resp['lyricUser']['uptime'])
+                    'lyricUser' : None if not resp.get('lyricUser') else {
+                        'name' : resp['lyricUser']['nickname'],
+                        'id' : resp['lyricUser']['userid'],
+                        'uptime' : self.timeConvert(resp['lyricUser']['uptime'])                        
+                    }
                 },
                 'lrc' : {
                     'version' : resp['lrc']['version'],
                     'lyric' : resp['lrc']['lyric']
+                },
+                'transLrc' : {
+                    'version' : resp['tlyric'].get('version'),
+                    'lyric' : resp['tlyric'].get('lyric')
                 }
             }
+
+            # check if there is infomation of the translating user
+            if resp.get('transUser'):
+                result['contributor'].update({
+                    'transUser' :{
+                        'name' : resp['transUser']['nickname'],
+                        'id' : resp['transUser']['userid'],
+                        'uptime' : self.timeConvert(resp['transUser']['uptime'])
+                    }
+                })
             return result
 
     # private method to fetch comment
@@ -561,14 +578,16 @@ if __name__ == "__main__":
     # r = nm.get_audio_file(28909067,320000)
     # pprint(r)
 
-    # testing get playlist
+    ## testing get playlist
     # playlist = nm.get_playlist(2683935608)
-    playlist = nm.get_playlist('http://music.163.com/playlist?id=4869945748&userid=315274012')
-    print((playlist['playlist']['trackIds']))
-    pprint(nm.get_song(playlist['playlist']['trackIds']))
+    # playlist = nm.get_playlist('http://music.163.com/playlist?id=4869945748&userid=315274012')
+    # print((playlist['playlist']['trackIds']))
+    # pprint(nm.get_song(playlist['playlist']['trackIds']))
 
-    # # testing get lyric
-    # pprint(nm.get_lyric(114913228))
+    # testing get lyric
+    # 524148119, 1405281921 318143
+    ly = nm.get_lyric(318143)
+    pprint(ly)
 
 
     # testing get comments 3203846 501846756 263648
