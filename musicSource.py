@@ -63,6 +63,7 @@ class Music:
                  .add_field(name='Duration', value=self.source.data.get('length'))
                  .add_field(name='Requested by', value=self.requester.mention)
                  .add_field(name='Music Page', value='[Click]({})'.format(self.source.data.get('url')))
+                 .add_field(name='ID', value=self.source.data.get('id'))
                  .set_thumbnail(url=self.source.data['album']['picture'])
                  .set_footer(text="Release on {}".format(self.source.data['album']['publishTime'])))
 

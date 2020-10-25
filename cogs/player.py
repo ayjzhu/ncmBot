@@ -147,6 +147,10 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
         await ctx.send(embed = embed)
         # print(menu)
 
+        # Automatically select if it has only one result
+        if len(results['info']) == 1:
+            return results['info'][0].get('id')
+
         # validate whether input is within bounds
         def is_valid(msg):
             selection = int(msg.content)
@@ -240,19 +244,25 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
         else:
             currentSong = ctx.voice_state.current.source
             songId = currentSong.id
-            lyric = self.music.get_lyric(songId)
-            artist = ' & '.join([i['name'] for i in currentSong.data['artist']])            
-            embed = (
-                discord.Embed(
-                    title = '%s by %s' % (currentSong.data.get('title'), artist),
-                    description = lyric.get('lrc')['lyric'],
-                    color = discord.Color.orange()
-                )
-                .set_footer(text = 'Contributed by {0}'.format(
-                    'N/A' if not lyric['contributor']['lyricUser'] else lyric['contributor']['lyricUser']['name'])
-                )
-            )          
-            await ctx.send(embed = embed)
+            try:
+                lyric = self.music.get_lyric(songId)
+            except Exception as e:
+                print(f'ERROR: {type(e).__name__} - {e}')
+                await ctx.send('Invalid `song ID` or `lyric` is unavaliable!')
+
+            else:
+                artist = ' & '.join([i['name'] for i in currentSong.data['artist']])            
+                embed = (
+                    discord.Embed(
+                        title = '%s by %s' % (currentSong.data.get('title'), artist),
+                        description = lyric.get('lyric') if lyric.get('lyric') else lyric['lrc'].get('lyric'),
+                        color = discord.Color.orange()
+                    )
+                    .set_footer(text = 'Contributed by {0}'.format(
+                        'N/A' if not lyric['contributor']['lyricUser'] else lyric['contributor']['lyricUser']['name'])
+                    )
+                )          
+                await ctx.send(embed = embed)
 
 
     @commands.command()
