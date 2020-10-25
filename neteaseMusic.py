@@ -55,7 +55,7 @@ class NeteaseMusic():
         songs = resp['result']['songs']     # obtain data for songs
 
         self.musicMetadata['query'].update(
-            total = resp['result']['songCount'],
+            total = resp['result']['songCount'] if resp['result']['songCount'] > 0 else len(songs),
             numDisplayed = len(songs)
         )
 
@@ -318,26 +318,32 @@ class NeteaseMusic():
             ).json()
             
             # validate song id
-            if resp.get('lrc') is None or resp['code'] != 200:
+            if resp.get('nolyric'):
+                raise TypeError('Pure Music! No lyric is avalible.')
+            elif not 'lrc' in resp or resp['code'] != 200:
                 raise ValueError('Invalid song ID or lyric is unavaliable!')
         except Exception as e:
             print(f'ERROR: {type(e).__name__} - {e}')
         else:
             result = {
+                'id' : None if not resp.get('lyricUser') else resp['lyricUser'].get('id'), # song id
                 'contributor' : {
                     'lyricUser' : None if not resp.get('lyricUser') else {
                         'name' : resp['lyricUser']['nickname'],
                         'id' : resp['lyricUser']['userid'],
-                        'uptime' : self.timeConvert(resp['lyricUser']['uptime'])                        
+                        'publishTime' : self.timeConvert(resp['lyricUser']['uptime'])                        
                     }
                 },
                 'lrc' : {
                     'version' : resp['lrc']['version'],
-                    'lyric' : resp['lrc']['lyric']
+                    'lyric' : re.sub(r'\[(.+?)\]', '', resp['lrc']['lyric']) # remove the timestamps
+                    # 'lyric' : resp['lrc']['lyric']
                 },
-                'transLrc' : {
+                'transLrc' : {      # not all songs have translation
                     'version' : resp['tlyric'].get('version'),
-                    'lyric' : resp['tlyric'].get('lyric')
+                     # remove the timestamps
+                    'lyric' : re.sub(r'\[(.+?)\]', '', resp['tlyric']['lyric']) if resp['tlyric'].get('lyric') else None
+                    # 'lyric' : resp['tlyric'].get('lyric')
                 }
             }
 
@@ -347,10 +353,30 @@ class NeteaseMusic():
                     'transUser' :{
                         'name' : resp['transUser']['nickname'],
                         'id' : resp['transUser']['userid'],
-                        'uptime' : self.timeConvert(resp['transUser']['uptime'])
+                        'publishTime' : self.timeConvert(resp['transUser']['uptime'])
                     }
                 })
+
+            # combining the original and translated lyric if exists
+            if result['transLrc'].get('lyric'):
+                # convert the lyric from string to list and remove all '\n'
+                lyricList = list(filter(None, result['lrc']['lyric'].splitlines()))
+                transLrcList = list(filter(None, result['transLrc']['lyric'].splitlines()))
+
+                # combined both lyric list element-wise and join them to a 
+                diff = len(lyricList) - len(transLrcList)     # offset the union list by the difference length in each list
+                if diff == 0:
+                    combinedLyricList = [i + '\n' + j for i, j in zip(lyricList, transLrcList)]
+                elif diff > 0:
+                    combinedLyricList = lyricList[:diff] + [i + '\n' + j for i, j in zip(lyricList[diff:], transLrcList)]
+                else:
+                    combinedLyricList = transLrcList[:diff] + [i + '\n' + j for i, j in zip(lyricList, transLrcList[diff:])]
+
+                combinedLyricStr = '\n'.join(combinedLyricList)
+                result.update(lyric= combinedLyricStr)
+
             return result
+
 
     # private method to fetch comment
     def __get_comments(self, comments:list):
@@ -586,7 +612,7 @@ if __name__ == "__main__":
 
     # testing get lyric
     # 524148119, 1405281921 318143
-    ly = nm.get_lyric(318143)
+    ly = nm.get_lyric(3986241)
     pprint(ly)
 
 
