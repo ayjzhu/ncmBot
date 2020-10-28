@@ -42,10 +42,10 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
     async def cog_before_invoke(self, ctx: commands.Context):
         ctx.voice_state = self.get_voice_state(ctx)
 
-    async def cog_command_error(self, ctx: commands.Context, error: commands.CommandError):
-        errorMsg = 'An error occurred: {}'.format(str(error))
-        print(errorMsg)
-        await ctx.send(errorMsg)
+    # async def cog_command_error(self, ctx: commands.Context, error: commands.CommandError):
+    #     errorMsg = 'An error occurred: {}'.format(str(error))
+    #     print(errorMsg)
+    #     await ctx.send(errorMsg)
 
 
     @commands.Cog.listener()
@@ -124,14 +124,14 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
 
         author = ctx.author
         channel = ctx.channel
-        menu = ''   # research results
+        # menu = ''   # research results
 
         await ctx.trigger_typing()
         results = self.music.search(keyword)
         displayNum = results.get('query').get('numDisplayed')
         embed = discord.Embed(
             title = 'Search results of "%s":' % keyword,
-            description = 'Please select a track from # 1-{}: '.format(displayNum),
+            description = 'Please select a track from # **1-{}**: '.format(displayNum),
             timestamp = datetime.datetime.utcnow(),
             colour = discord.Colour.green()
         ).set_footer(text = 'Current displays: %s/%s' % (displayNum, results.get('query').get('total')))
@@ -139,11 +139,11 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
         for index, song in enumerate(results['info']):
             artist = ' & '.join([i['name'] for i in song['artist']])
             embed.add_field(
-                name = '{} {}'.format(index+1, song['title']),
+                name = '{}. {}'.format(index+1, song['title']),
                 value = '%s ~ %s • %s' % (artist, song['album']['name'], song['length']),
                 inline = False
             )
-            menu += '%02d: %s | %s | %s | %s' % (index+1, song['title'], artist, song['album']['name'], song['length']) + '\n'
+            # menu += '%02d: %s | %s | %s | %s' % (index+1, song['title'], artist, song['album']['name'], song['length']) + '\n'
         await ctx.send(embed = embed)
         # print(menu)
 
@@ -172,7 +172,11 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
 
         if not ctx.voice_state.voice:
             await ctx.invoke(self.join)
-        songId = await ctx.invoke(self.search, keyword=keyword)
+
+        if keyword.startswith('http'):
+            songId = self.music.search_by_url(keyword)['id']
+        else:
+            songId = await ctx.invoke(self.search, keyword=keyword)
 
         await ctx.trigger_typing()
         try:
@@ -263,6 +267,59 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
                     )
                 )          
                 await ctx.send(embed = embed)
+    
+
+    @commands.command()
+    async def comment(self, ctx:commands.Context, count: int = 10):
+        if not ctx.voice_state.voice:
+            await ctx.send('No song is playing currently!')
+        else:
+            currentSong = ctx.voice_state.current.source
+            songId = currentSong.id
+            try:
+                comments = self.music.get_music_comments(songId, limit=count)
+                hc = comments.get('hotComments')
+            except Exception as e:
+                print(f'ERROR: {type(e).__name__} - {e}')
+                await ctx.send('Invalid `song ID` or `comment` is unavaliable!')
+
+            else:
+                await ctx.trigger_typing()
+                counter = 1
+                for comment in hc[:count]:
+                    embed = (
+                        discord.Embed(
+                            # title = '来自 "{}" 的评论'.format(comment.get('user')['name']),
+                            title = '💬 精彩评论 #{}:'.format(counter),
+                            description = comment.get('comment')['content'],
+                            color = discord.Color.teal()
+                        )
+                        .add_field(
+                            name = '\uFEFF',
+                            value = '\U0001F44D {}'.format(comment.get('comment')['likes']),
+                            inline = False
+                        )
+                        .set_author(
+                            name = '{}'.format(comment.get('user')['name'] ),
+                            icon_url= comment.get('user')['avatar'],
+                            url = 'https://music.163.com/#/user/home?id={}'.format(comment.get('user')['id'])
+                        )
+                        # .set_thumbnail(url = ctx.voice_state.current.source.data['album']['picture'])
+                        .set_footer(text = '源自{} | 评论于 {}'.format(currentSong.data['title'], comment.get('comment')['time']))
+                    )
+                    counter += 1
+
+                    # check if this is a replied comment to a parent comment
+                    pc = comment.get('parentComment')
+                    if pc:
+                        content = pc.get('comment')['content']
+                        embed.insert_field_at(
+                            index = 0,
+                            name = '回复 @ %s' % pc.get('user')['name'],
+                            value = '`{}`'.format(content if content else '该评论已删除')
+                        )
+
+                    await ctx.send(embed = embed)
 
 
     @commands.command()
