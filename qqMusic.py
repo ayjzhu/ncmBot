@@ -1,6 +1,7 @@
+import re
 import requests
-from configparser import ConfigParser
 import datetime
+from configparser import ConfigParser
 from prettytable import PrettyTable
 
 class QQMusic():
@@ -111,6 +112,54 @@ class QQMusic():
         return resp['data']
 
 
+    def _get_playlist_id(self, url:str):
+        '''
+        Extract and return playlist id from an url
+        '''
+        try:
+            resp = requests.get(
+                url, 
+                headers=self.headers)
+        except Exception as e:
+            print(f'ERROR: {type(e).__name__} - {e}')
+        else:
+            playlist_id = re.findall(r'\Wid=(\d+)', resp.url)[0]
+            return int(playlist_id)
+
+
+    def get_playlist(self, _id:int):
+        '''
+        Retrieve all songs in a playlist
+        '''
+        resp = requests.get(
+            '{}songlist'.format(self.baseUrl),
+            headers=self.headers,
+            params={'id' : _id}
+        ).json()
+
+        playlist = dict()
+        data = resp['data']
+        if data:
+            convert = lambda t: datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %H:%M:%S')  
+            playlist = {
+                'name' : data['dissname'],
+                'id' : int(data['disstid']),
+                'creator' : data['nickname'],
+                'createTime' : convert(data['ctime']),
+                'description' : data['desc'],                           # empty if None
+                'tags' : [tag.get('name') for tag in data['tags']],     
+                'songCount' : data['songnum'],
+                'playedCount' : data['visitnum'],
+                'songids' : [int(i) for i in data['songids'].split(',')],
+                'songmids' : [song['songmid'] for song in data['songlist']],
+                'pic' : {
+                    'logo' : data['logo'],
+                    'profile' : data['headurl']
+                }
+            }
+        return playlist
+
+
     def display(self):
         '''
         Display the formatted search result in a table
@@ -139,12 +188,14 @@ class QQMusic():
 
 if __name__ == "__main__":
     qq = QQMusic()
-    # testing search
-    keywords =  input("Search: ")
-    results = qq.search(keywords, limit = 10)
-    qq.display()   
-    selection = int(input('Select # of the song to download: '))
-    song = results['info'][selection-1]
-    print(song)
-    print(qq.get_song(song['songmid']))
+    # # testing search
+    # keywords =  input("Search: ")
+    # results = qq.search(keywords, limit = 10)
+    # qq.display()   
+    # selection = int(input('Select # of the song to download: '))
+    # song = results['info'][selection-1]
+    # print(song)
+    # print(qq.get_song(song['songmid']))
+    _id = qq._get_playlist_id('https://c.y.qq.com/base/fcgi-bin/u?__=fnd2C5sz4RmN')
+    print(qq.get_playlist(_id))
                    
