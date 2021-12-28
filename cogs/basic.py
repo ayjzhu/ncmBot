@@ -33,7 +33,7 @@ class Basic(commands.Cog, name = "Basic Commands"):
         """
         await ctx.send('Goodbye! Logging out...')
         print("Command sent by '%s', logging out..." % ctx.message.author)
-        await self.client.logout()
+        await self.client.close()
 
 def setup(client):
     client.add_cog(Basic(client))
