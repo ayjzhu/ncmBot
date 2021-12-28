@@ -185,14 +185,19 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
             print(str(e))
             await ctx.send('An error occurred while processing this request: {}'.format(str(e)))
         else:
-            music = musicSource.Music(source)
-            await ctx.voice_state.songs.put(music)
-            # print(ctx.voice_state.songs)
-            await ctx.send('Enqueued {}'.format(str(source)))
-            # print('all voice states: ', self.voice_states)
+            if source: # valid music source (song)
+                music = musicSource.Music(source)
+                await ctx.voice_state.songs.put(music)
+                # print(ctx.voice_state.songs)
+                await ctx.send('Sucessfully added {} to queue!'.format(str(source)))
+                # print('all voice states: ', self.voice_states)
 
-            # await ctx.send(embed=song.create_embed())
-            # ctx.voice_client.play(song.source, after=lambda e: print('Player error: %s' % e) if e else print('Finished playing!'))
+                # await ctx.send(embed=song.create_embed())
+                # ctx.voice_client.play(song.source, after=lambda e: print('Player error: %s' % e) if e else print('Finished playing!'))
+            else:
+                msg = 'Unavailable! Failed to add `{}` to queue!'.format(self.music.get_song(songId)[0].get('title'))
+                print(msg)
+                await ctx.send(msg)
 
 
     @commands.command()
@@ -211,7 +216,7 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
             artist = ' & '.join([i['name'] for i in song.source.data['artist']])
             queue += '`{0}.` {1} - [{2[title]}]({2[url]}) • {2[length]}\n'.format(i + 1, artist, song.source.data)
 
-        embed = (discord.Embed(description='**{} tracks:**\n\n{}'.format(ctx.voice_state.songs.size(), queue))
+        embed = (discord.Embed(description='**{} tracks next up:**\n\n{}'.format(ctx.voice_state.songs.size(), queue))
                  .set_footer(text='Viewing page {}/{}'.format(page, pages)))
         await ctx.send(embed=embed)
 
@@ -226,17 +231,26 @@ class Player(commands.Cog, name = 'Music Playback Commands'):
 
         # async with ctx.typing():
         await ctx.trigger_typing()
-        message = await ctx.send('Enqueuing playlist...')
-        for songId in ids:
+        message = await ctx.send('Starting to import songs from playlist...')
+        for index, songId in enumerate(ids, 1):
             try:
                 source = await musicSource.NetEaseMusicSource.create_source(ctx, songId, br=320000, download=False)
             except musicSource.NetEaseMusicError as e:
                 print(str(e))
                 await ctx.send('An error occurred while processing this request: {}'.format(str(e)))
             else:
-                music = musicSource.Music(source)
-                await ctx.voice_state.songs.put(music)
-                await message.edit(content='Enqueued {}'.format(str(source)))
+                if source:  # valid music source (song)
+                    music = musicSource.Music(source)
+                    await ctx.voice_state.songs.put(music)
+                    await message.edit(content='Adding `{}/{}` songs: {}'.format(index, len(ids), str(source)))
+                else:
+                    msg = 'Unavailable! Skipping song# {} `{}` with `ID:{}`'.format(
+                        index,
+                        self.music.get_song(songId)[0].get('title'),
+                        songId)
+                    print(msg)
+                    await message.edit(content=msg)
+            
         await message.edit(content='All songs has been added to the player queue!')
         await message.add_reaction('\U0001F44D')
 

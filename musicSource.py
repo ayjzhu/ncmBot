@@ -29,8 +29,18 @@ class NetEaseMusicSource(discord.PCMVolumeTransformer):
     async def create_source(cls, ctx:commands.Context, songId:int, br=999000, download=False):
         ncm = NeteaseMusic()
         info = ncm.get_song(songId)[0]
-        audioInfo = ncm.get_audio_file(info.get('id'), bitrate=br)
-        print('Song info: ',info)
+
+        # song that is non-copyrighted and has no alternative version
+        if not ncm.check_song(songId) and info.get('altSongId') is None:
+            return None
+
+        # update id if there exist an alternative version of the song
+        if info.get('altSongId'):
+            songId = int(info.get('altSongId'))
+            print(f'Alternative version found! ID:{songId}')
+
+        audioInfo = ncm.get_audio_file(songId, bitrate=br)
+        print('Song info: ', info)
 
         if download:
             filename = 'songs/%s.%s' % (info['filename'], audioInfo['type'])
@@ -56,10 +66,11 @@ class Music:
 
     def create_embed(self):
         embed = (discord.Embed(title='Now playing',
-                               description='```css\n{} - {}\n```'.format(self.source.data.get('title'),
+                               description='```\n{} - {}\n```'.format(self.source.data.get('title'),
                                ' & '.join([i['name'] for i in self.source.data['artist']])),
                                color=discord.Color.blurple())
-                 .add_field(name='Album', value= self.source.data['album']['name'])
+                 .add_field(name='Artist', value=' & '.join([i['name'] for i in self.source.data['artist']]))
+                 .add_field(name='Album', value=self.source.data['album']['name'])
                  .add_field(name='Duration', value=self.source.data.get('length'))
                  .add_field(name='Requested by', value=self.requester.mention)
                  .add_field(name='Music Page', value='[Click]({})'.format(self.source.data.get('url')))

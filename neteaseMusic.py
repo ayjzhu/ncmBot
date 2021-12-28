@@ -153,6 +153,22 @@ class NeteaseMusic():
             }
             return metaData
     
+    def check_song(self, _id):
+        '''
+        Check if the song is available
+
+        :Args:
+            - ids `int`: song IDs
+        :Returns:
+            - isAvailable `boolean`: `True` if this song has copyright, `False` otherwise
+        '''        
+        resp = requests.get(
+            '{}check/music'.format(self.baseUrl),
+            headers = self.headers,
+            params = {'id' : _id}
+        ).json()
+
+        return resp.get('success')
 
     def get_song(self, ids):
         '''
@@ -208,7 +224,8 @@ class NeteaseMusic():
                     'size': {size:'{:.1f} MB'.format(value/1_000_000) for size, value in sizes.items()},    # convert each bitrates to megabytes
                     'fee' : '',
                     'maxBitrate' : privilege['maxbr'],
-                    'url': 'https://music.163.com/#/song?id=%s' % song['id']
+                    'url': 'https://music.163.com/#/song?id=%s' % song['id'],
+                    'altSongId' : song['noCopyrightRcmd']['songId'] if song.get('noCopyrightRcmd') else None # song id (str) of other available version
                 }
 
                 # update fee infomation
