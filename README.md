@@ -34,8 +34,8 @@ A Discord music bot that plays music on demand via NetEase Cloud Music
   - [ ] Keyword recommendations
 - Unique features
     - [x] User login
-    - [ ] Display popular comments
-    - [ ] Display lyric
+    - [x] Display popular comments
+    - [x] Display lyric
     - [x] Fetch user infomation
     - [x] Fetch user's playlists
     - [ ] Interative voting of current song
@@ -46,7 +46,8 @@ A Discord music bot that plays music on demand via NetEase Cloud Music
 
 ## Supported Source
 - Netease Music
-- QQ Music (upcoming)
+- QQ Music (WIP)
+- YouTube Music (upcoming)
 
 ## Usages/Commands
 The following commands start with a `.` symbol.
